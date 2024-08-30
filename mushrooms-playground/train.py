@@ -1,5 +1,6 @@
 # This Python 3 environment comes with many helpful analytics libraries installed
 # It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
+import datetime
 import numpy as np  # linear algebra
 import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
 import datetime as dt
@@ -13,17 +14,20 @@ pd.set_option('display.width', 1000)
 import xgboost as xgb
 
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, matthews_corrcoef
 
 
 class EvalLogger(TrainingCallback):
-    def __init__(self, period):
+    def __init__(self, period, epochs):
         super().__init__()
         self.period = period
+        self.epochs = epochs
+        self.__start = datetime.datetime.now()
 
     def after_iteration(self, model, epoch: int, evals_log) -> bool:
         if epoch % self.period == 0:
-            print("Epoch ", epoch)
+            eta = (datetime.datetime.now() - self.__start) * self.epochs / (1 + epoch)
+            print(f"Epoch {epoch}, eta {eta}")
 
 
 # run with 'poetry run python mushrooms-playground/train.py'
@@ -96,9 +100,17 @@ if __name__ == "__main__":
     print(train_x.shape, train_y.shape, test_x.shape)
 
 
+    def mcc(y_pred, dtrain):
+        y_true = dtrain.get_label()
+        y_pred = np.round(y_pred)  # Convert probabilities to binary predictions
+        mcc = matthews_corrcoef(y_true, y_pred)
+        return 'MCC', mcc
+
+
     def train(dataset, params, epochs):
         start = dt.datetime.now()
-        bst = xgb.train(params, dataset, epochs, callbacks=[EvalLogger(100)])
+        logger = EvalLogger(100, epochs)
+        bst = xgb.train(params, dataset, epochs, callbacks=[logger])
         end = dt.datetime.now()
         print("Training done in ", end - start)
         return bst
@@ -139,17 +151,19 @@ if __name__ == "__main__":
     dtest = xgb.DMatrix(test_x, enable_categorical=True)
 
     params = {
-        'max_depth': 6,
-        'eta': 0.007,
-        'subsample': 0.7,
+        'n_estimators': 1000,
+        'enable_categorical': True,
+        'max_depth': 8,
+        'eta': 0.006,
+        'subsample': 0.8,
         'colsample_bytree': 1.0,
-        'min_child_weight': 8,
+        'min_child_weight': 12,
         'objective': 'binary:logistic',  # Binary classification
         'eval_metric': 'logloss',  # Evaluation metric for binary classification
         'seed': 32830283,  # Random seed for reproducibility
     }
     print('training started')
-    bst = train(dtrain, params, 20000)
+    bst = train(dtrain, params, 30000)
 
     print(classification_report(train_y, predict(bst, dtrain)))
 
