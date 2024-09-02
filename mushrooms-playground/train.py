@@ -111,6 +111,7 @@ if __name__ == "__main__":
         start = dt.datetime.now()
         logger = EvalLogger(100, epochs)
         bst = xgb.train(params, dataset, epochs, callbacks=[logger])
+        bst.save_model("model")
         end = dt.datetime.now()
         print("Training done in ", end - start)
         return bst
@@ -153,8 +154,8 @@ if __name__ == "__main__":
     params = {
         'n_estimators': 1000,
         'enable_categorical': True,
-        'max_depth': 8,
-        'eta': 0.006,
+        'max_depth': 9,
+        'eta': 0.005,
         'subsample': 0.8,
         'colsample_bytree': 1.0,
         'min_child_weight': 12,
@@ -163,7 +164,7 @@ if __name__ == "__main__":
         'seed': 32830283,  # Random seed for reproducibility
     }
     print('training started')
-    bst = train(dtrain, params, 30000)
+    bst = train(dtrain, params, 40000)
 
     print(classification_report(train_y, predict(bst, dtrain)))
 
